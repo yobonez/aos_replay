@@ -50,7 +50,7 @@ import enet
 from time import time
 con = enet.Host(None, 1, 1)
 con.compress_with_range_coder()
-peer = con.connect(enet.Address(args.ip, args.port), 1, args.version)
+peer = con.connect(enet.Address(bytes(args.ip, encoding="utf-8"), args.port), 1, args.version)
 with open(args.file, "wb") as fh:
 	fh.write(struct.pack('BB', FILE_VERSION, args.version))
 	while True:

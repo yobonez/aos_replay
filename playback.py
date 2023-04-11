@@ -44,12 +44,12 @@ class Client(object):
 			raise EOFError("replay file finished")
 		self.timedelta, size = struct.unpack(fmt, meta)
 		self.data = self.fh.read(size)
-		if ord(self.data[0]) == 15: # state data
-			self.playerid = ord(self.data[1])
+		if self.data[0] == 15: # state data
+			self.playerid = self.data[1]
 
 import enet
 from time import time
-host = enet.Host(enet.Address('localhost', args.port), 128, 1)
+host = enet.Host(enet.Address(b'localhost', args.port), 128, 1)
 host.compress_with_range_coder()
 clients = {}
 client_id = 0
@@ -62,10 +62,10 @@ while True:
 			cl.peer.send(0, enet.Packet(pkt, enet.PACKET_FLAG_RELIABLE))
 			cl.spam_time = time() + 1
 		while cl.start_time + cl.timedelta <= time():
-			if ord(cl.data[0]) == 3: #input data
+			if cl.data[0] == 3: #input data
 				player, data = struct.unpack("xbb", cl.data)
 				cl.playerinfo[player][0] = data
-			elif ord(cl.data[0]) == 4: #weapon data
+			elif cl.data[0] == 4: #weapon data
 				player, data = struct.unpack("xbb", cl.data)
 				cl.playerinfo[player][1] = data
 			cl.peer.send(0, enet.Packet(cl.data, enet.PACKET_FLAG_RELIABLE))
@@ -85,35 +85,35 @@ while True:
 		continue
 	elif event.type == enet.EVENT_TYPE_CONNECT:
 		if event.peer.eventData == aos_version:
-			event.peer.data = str(client_id)
+			event.peer.data = bytes(client_id)
 			client_id += 1
-			clients[event.peer.data] = Client(event.peer, open(args.file, "rb"), time())
+			clients[str(event.peer.data)] = Client(event.peer, open(args.file, "rb"), time())
 			print("received client connection", event.peer.data)
 		else:
 			print("WRONG CLIENT VERSION: replay is version %s and client was version %s" % (aos_version, event.peer.eventData))
 			event.peer.disconnect_now(3) #ERROR_WRONG_VERSION
 	elif event.type == enet.EVENT_TYPE_DISCONNECT:
 		if event.peer.data in clients:
-			clients[event.peer.data].fh.close()
-			del clients[event.peer.data]
+			clients[str(event.peer.data)].fh.close()
+			del clients[str(event.peer.data)]
 		print("lost client connection", event.peer.data)
 	elif event.type == enet.EVENT_TYPE_RECEIVE:
-		cl = clients[event.peer.data]
+		cl = clients[str(event.peer.data)]
 		if not cl.spawned:
 			if cl.playerid is None:
 				print("error: could not figure out player id, guessing! use the command 'id X' to fix")
 				cl.playerid = 0
 			cl.spawned = True
-			pkt = struct.pack("bbbbfff16s", 12, cl.playerid, 1, -1, 255., 255., 1., "")
+			pkt = struct.pack("bbbbfff16s", 12, cl.playerid, 1, -1, 255., 255., 1., b"")
 			event.peer.send(0, enet.Packet(pkt, enet.PACKET_FLAG_RELIABLE))
-		elif ord(event.packet.data[0]) == 17:
+		elif event.packet.data[0] == 17:
 			chat = event.packet.data[3:-1].decode('cp437', 'replace')
 			if chat == "spawn":
 				if cl.playerid is None:
 					print("error: could not figure out player id, guessing! use the command 'id X' to fix")
 					cl.playerid = 0
 				cl.spawned = True
-				pkt = struct.pack("bbbbfff16s", 12, cl.playerid, 1, -1, 255., 255., 1., "asd") #create player
+				pkt = struct.pack("bbbbfff16s", 12, cl.playerid, 1, -1, 255., 255., 1., b"asd") #create player
 				event.peer.send(0, enet.Packet(pkt, enet.PACKET_FLAG_RELIABLE))
 			elif chat[:3] == "id ":
 				try:
